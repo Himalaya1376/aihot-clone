@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIHOT - AI 热点监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+        
+        /* 分类标签页 */
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        
+        .tab {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            padding: 10px 24px;
+            border-radius: 30px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* 搜索框 */
+        .search-box {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .search-box input {
+            width: 100%;
+            max-width: 500px;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 30px;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            outline: none;
+        }
+        
+        /* 新闻卡片 */
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .news-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .news-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .news-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .news-title a {
+            color: #333;
+            text-decoration: none;
+        }
+        
+        .news-title a:hover {
+            color: #667eea;
+        }
+        
+        .news-summary {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+        
+        .category-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+        }
+        
+        .score {
+            background: #ff6b6b;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        
+        .source {
+            color: #999;
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            padding: 50px;
+        }
+        
+        .error {
+            text-align: center;
+            color: #ff6b6b;
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AIHOT</h1>
+        <div class="subtitle">AI 热点监控 · 每日精选</div>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 搜索新闻... (例如: GPT-5, Claude, OpenAI)">
+        </div>
+        
+        <div class="tabs" id="tabs">
+            <button class="tab active" data-category="all">全部</button>
+            <button class="tab" data-category="模型发布">🚀 模型发布</button>
+            <button class="tab" data-category="产品发布">📱 产品发布</button>
+            <button class="tab" data-category="行业动态">🏢 行业动态</button>
+            <button class="tab" data-category="论文研究">📄 论文研究</button>
+            <button class="tab" data-category="技巧观点">💡 技巧观点</button>
+        </div>
+        
+        <div id="newsContainer" class="news-grid">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 配置（使用你的真实信息）
+        const SUPABASE_URL = 'https://yjdmuveqhkaoqmrhmLck.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqZG11dmVxaGthb3FtcmhtbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMzA1NjksImV4cCI6MjA5MzgwNjU2OX0.nfKonN-XZfbEa-Kg68lL2M_LobkP-5b9yTxdewRES5E';
+        
+        let allNews = [];
+        let currentCategory = 'all';
+        let currentSearch = '';
+        
+        // 从 Supabase 获取数据
+        async function fetchNews() {
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/news?select=title,url,source,category,score,summary,published_at&order=published_at.desc&limit=50`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                allNews = data;
+                renderNews();
+            } catch (error) {
+                console.error('获取数据失败:', error);
+                document.getElementById('newsContainer').innerHTML = 
+                    `<div class="error">❌ 获取数据失败: ${error.message}<br><br>请检查网络连接和 API 配置</div>`;
+            }
+        }
+        
+        // 过滤新闻
+        function filterNews() {
+            let filtered = allNews;
+            
+            // 按分类过滤
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(news => news.category === currentCategory);
+            }
+            
+            // 按搜索关键词过滤
+            if (currentSearch.trim() !== '') {
+                const keyword = currentSearch.toLowerCase();
+                filtered = filtered.filter(news => 
+                    (news.title && news.title.toLowerCase().includes(keyword)) ||
+                    (news.summary && news.summary.toLowerCase().includes(keyword))
+                );
+            }
+            
+            return filtered;
+        }
+        
+        // 渲染新闻
+        function renderNews() {
+            const filtered = filterNews();
+            const container = document.getElementById('newsContainer');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="error">📭 没有找到相关新闻</div>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(news => `
+                <div class="news-card">
+                    <div class="news-title">
+                        <a href="${news.url || '#'}" target="_blank">${escapeHtml(news.title || '无标题')}</a>
+                    </div>
+                    ${news.summary ? `<div class="news-summary">${escapeHtml(news.summary)}</div>` : ''}
+                    <div class="news-meta">
+                        ${news.category ? `<span class="category-badge">${escapeHtml(news.category)}</span>` : ''}
+                        ${news.score ? `<span class="score">⭐ ${news.score}/10</span>` : ''}
+                        <span class="source">${escapeHtml(news.source || '未知来源')}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 防止 XSS 攻击的简单转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 设置事件监听
+        function setupEventListeners() {
+            // 分类标签点击
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentCategory = tab.dataset.category;
+                    renderNews();
+                });
+            });
+            
+            // 搜索输入
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                currentSearch = e.target.value;
+                renderNews();
+            });
+        }
+        
+        // 初始化
+        async function init() {
+            setupEventListeners();
+            await fetchNews();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
